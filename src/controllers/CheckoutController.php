@@ -3,6 +3,9 @@
 namespace cadenzajon\stripecart\controllers;
 
 use cadenzajon\stripecart\Plugin;
+use cadenzajon\stripecart\services\Checkout;
+use Craft;
+use craft\stripe\Plugin as StripePlugin;
 use craft\web\Controller;
 use yii\web\Response;
 
@@ -36,15 +39,43 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Return landing after Stripe Checkout: clears the cart and renders the
-     * site's checkout/success template.
+     * Return landing after Stripe Checkout. Verifies the Checkout Session with
+     * Stripe and only clears the cart once payment is confirmed, so an
+     * unverified or forged visit cannot empty the cart or claim success.
      */
     public function actionSuccess(): Response
     {
-        Plugin::getInstance()->cart->clear();
+        $sessionId = $this->request->getQueryParam('session_id');
+        $paid = false;
+        $ours = false;
+
+        if (is_string($sessionId) && $sessionId !== '') {
+            try {
+                $session = StripePlugin::getInstance()->getApi()->getClient()
+                    ->checkout->sessions->retrieve($sessionId);
+                $paid = ($session->status ?? null) === 'complete'
+                    && in_array($session->payment_status ?? null, ['paid', 'no_payment_required'], true);
+
+                // Only this browser's own checkout carries the stored reference.
+                $expected = Craft::$app->getSession()->get(Checkout::SESSION_REF_KEY);
+                $ours = $paid
+                    && is_string($expected) && $expected !== ''
+                    && ($session->client_reference_id ?? null) === $expected;
+            } catch (\Throwable $e) {
+                Craft::warning("Could not verify checkout session $sessionId: {$e->getMessage()}", __METHOD__);
+            }
+        }
+
+        // Clear the cart only for this browser's own confirmed checkout, and
+        // consume the reference so it cannot be replayed.
+        if ($ours) {
+            Craft::$app->getSession()->remove(Checkout::SESSION_REF_KEY);
+            Plugin::getInstance()->cart->clear();
+        }
 
         return $this->renderTemplate('checkout/success', [
-            'sessionId' => $this->request->getQueryParam('session_id'),
+            'sessionId' => $sessionId,
+            'paid' => $paid,
         ]);
     }
 }

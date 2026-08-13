@@ -2,6 +2,7 @@
 
 namespace cadenzajon\stripecart\controllers;
 
+use cadenzajon\stripecart\exceptions\CartException;
 use cadenzajon\stripecart\Plugin;
 use craft\web\Controller;
 use yii\web\Response;
@@ -16,7 +17,11 @@ class CartController extends Controller
         $productId = (int)$this->request->getRequiredBodyParam('productId');
         $qty = (int)$this->request->getBodyParam('qty', 1);
 
-        Plugin::getInstance()->cart->add($productId, $qty);
+        try {
+            Plugin::getInstance()->cart->add($productId, $qty);
+        } catch (CartException $e) {
+            return $this->fail($e->getMessage());
+        }
 
         return $this->respond('Added to cart.');
     }
@@ -27,7 +32,11 @@ class CartController extends Controller
         $productId = (int)$this->request->getRequiredBodyParam('productId');
         $qty = (int)$this->request->getRequiredBodyParam('qty');
 
-        Plugin::getInstance()->cart->update($productId, $qty);
+        try {
+            Plugin::getInstance()->cart->update($productId, $qty);
+        } catch (CartException $e) {
+            return $this->fail($e->getMessage());
+        }
 
         return $this->respond('Cart updated.');
     }
@@ -60,6 +69,19 @@ class CartController extends Controller
         }
 
         $this->setSuccessFlash($message);
+
+        return $this->redirectToPostedUrl();
+    }
+
+    private function fail(string $message): Response
+    {
+        if ($this->request->getAcceptsJson()) {
+            return $this->asFailure($message, [
+                'count' => Plugin::getInstance()->cart->getCount(),
+            ]);
+        }
+
+        $this->setFailFlash($message);
 
         return $this->redirectToPostedUrl();
     }

@@ -4,6 +4,7 @@ namespace cadenzajon\stripecart\services;
 
 use cadenzajon\stripecart\events\CheckoutEvent;
 use cadenzajon\stripecart\Plugin;
+use Craft;
 use craft\helpers\UrlHelper;
 use craft\stripe\Plugin as StripePlugin;
 use yii\base\Component;
@@ -19,6 +20,13 @@ class Checkout extends Component
      * exposing line items and session params for modification.
      */
     public const EVENT_BEFORE_CHECKOUT = 'beforeCheckout';
+
+    /**
+     * Craft session key holding this checkout's one-time reference. It is sent
+     * as the Stripe client_reference_id and matched on the success return, so
+     * only the browser that started the checkout can clear its own cart.
+     */
+    public const SESSION_REF_KEY = 'stripe-cart:checkout-ref';
 
     /**
      * Fires when a checkout.session.completed webhook arrives, with the
@@ -45,12 +53,32 @@ class Checkout extends Component
         if (!empty($settings['allowPromotionCodes'])) {
             $params['allow_promotion_codes'] = true;
         }
-        if (!empty($settings['shippingOptions'])) {
-            $params['shipping_options'] = array_map(
-                fn(string $rateId) => ['shipping_rate' => $rateId],
-                $settings['shippingOptions'],
-            );
+
+        // Shipping options accept either pre-created Stripe shipping rate IDs
+        // (shippingOptions) or inline shipping_rate_data definitions
+        // (shippingRates). Both are applied at the Checkout Session level.
+        $shippingOptions = [];
+        foreach (($settings['shippingOptions'] ?? []) as $rateId) {
+            $shippingOptions[] = ['shipping_rate' => $rateId];
         }
+        foreach (($settings['shippingRates'] ?? []) as $rateData) {
+            $shippingOptions[] = ['shipping_rate_data' => $rateData];
+        }
+        if ($shippingOptions) {
+            $params['shipping_options'] = $shippingOptions;
+        }
+
+        // Stripe Tax. Prices without a tax_behavior fall back to the account's
+        // default tax behavior (Tax settings), so no per-price change is needed.
+        if (!empty($settings['automaticTax'])) {
+            $params['automatic_tax'] = ['enabled' => true];
+        }
+
+        // One-time reference binding this checkout to this browser session, so
+        // only the initiating visitor can clear their cart on the success return.
+        $ref = Craft::$app->getSecurity()->generateRandomString(32);
+        Craft::$app->getSession()->set(self::SESSION_REF_KEY, $ref);
+        $params['client_reference_id'] = $ref;
 
         $event = new CheckoutEvent([
             'lineItems' => $lineItems,
