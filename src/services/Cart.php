@@ -50,7 +50,7 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
-        $newQty = $this->clampQty(($items[$productId] ?? 0) + $qty);
+        $newQty = $this->clampQty(($items[$productId] ?? 0) + $qty, $product);
         $this->assertEligible($product, $newQty);
 
         $items[$productId] = $newQty;
@@ -77,7 +77,7 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
-        $qty = $this->clampQty($qty);
+        $qty = $this->clampQty($qty, $product);
         $this->assertEligible($product, $qty);
 
         $items[$productId] = $qty;
@@ -107,7 +107,7 @@ class Cart extends Component
             if (!$product) {
                 continue;
             }
-            $qty = $this->clampQty((int)$qty);
+            $qty = $this->clampQty((int)$qty, $product);
             // Drop anything that is no longer purchasable so a stale cart cannot
             // check out an out-of-stock or coming-soon title.
             if (!$this->isEligible($product, $qty)) {
@@ -163,11 +163,25 @@ class Cart extends Component
         return $product;
     }
 
-    /** Clamps a quantity to at least 1 and at most maxQtyPerItem (0 = no limit). */
-    private function clampQty(int $qty): int
+    /**
+     * The per-item maximum quantity, read from the product's Stripe metadata
+     * (0 = no limit).
+     */
+    public function maxQtyFor(Product $product): int
+    {
+        $key = Plugin::getInstance()->getSettings()->maxQtyMetadataKey;
+        if ($key === '') {
+            return 0;
+        }
+        $max = $product->getData()['metadata'][$key] ?? null;
+        return is_numeric($max) ? max(0, (int)$max) : 0;
+    }
+
+    /** Clamps a quantity to at least 1 and at most the product's per-item limit. */
+    private function clampQty(int $qty, Product $product): int
     {
         $qty = max(1, $qty);
-        $max = Plugin::getInstance()->getSettings()->maxQtyPerItem;
+        $max = $this->maxQtyFor($product);
         return $max > 0 ? min($max, $qty) : $qty;
     }
 

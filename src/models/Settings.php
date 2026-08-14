@@ -22,8 +22,12 @@ class Settings extends Model
     /** Stripe price metadata key that names the tier a price belongs to. */
     public string $priceTierMetadataKey = 'tier';
 
-    /** Maximum quantity of a single product per cart line (0 = no limit). */
-    public int $maxQtyPerItem = 99;
+    /**
+     * Stripe product metadata key holding a per-item maximum quantity, set on
+     * the product itself. An absent, empty, or non-numeric value means no
+     * per-item limit. Set the key to '' to disable per-item limits entirely.
+     */
+    public string $maxQtyMetadataKey = 'max_qty';
 
     /** Maximum number of distinct products in the cart (0 = no limit). */
     public int $maxDistinctItems = 50;
