@@ -29,9 +29,6 @@ class Settings extends Model
      */
     public string $maxQtyMetadataKey = 'max_qty';
 
-    /** Maximum number of distinct products in the cart (0 = no limit). */
-    public int $maxDistinctItems = 50;
-
     /**
      * Checkout options, all optional:
      * - successUrl: string — site path, may include {CHECKOUT_SESSION_ID}

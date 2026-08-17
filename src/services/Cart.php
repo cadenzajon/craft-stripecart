@@ -23,6 +23,9 @@ class Cart extends Component
      */
     public const EVENT_ELIGIBILITY = 'eligibility';
 
+    /** A Stripe Checkout Session accepts at most 100 line items (one per product). */
+    private const STRIPE_MAX_LINE_ITEMS = 100;
+
     private const SESSION_KEY = 'stripe-cart:cart';
 
     /**
@@ -42,10 +45,7 @@ class Cart extends Component
         $qty = max(1, $qty);
         $items = $this->getItems();
 
-        $settings = Plugin::getInstance()->getSettings();
-        if ($settings->maxDistinctItems > 0
-            && !isset($items[$productId])
-            && count($items) >= $settings->maxDistinctItems) {
+        if (!isset($items[$productId]) && count($items) >= self::STRIPE_MAX_LINE_ITEMS) {
             throw new CartException('Your cart is full. Please check out or remove an item first.');
         }
 
@@ -69,10 +69,7 @@ class Cart extends Component
             return;
         }
 
-        $settings = Plugin::getInstance()->getSettings();
-        if ($settings->maxDistinctItems > 0
-            && !isset($items[$productId])
-            && count($items) >= $settings->maxDistinctItems) {
+        if (!isset($items[$productId]) && count($items) >= self::STRIPE_MAX_LINE_ITEMS) {
             throw new CartException('Your cart is full. Please check out or remove an item first.');
         }
 
