@@ -114,7 +114,8 @@ class Cart extends Component
             if (!$price) {
                 continue;
             }
-            $items[] = new CartItem($product, $price, $qty);
+            $sale = Plugin::getInstance()->sales->resolve($product, $price);
+            $items[] = new CartItem($product, $price, $qty, $sale);
         }
 
         return $items;
@@ -193,14 +194,18 @@ class Cart extends Component
     }
 
     /**
-     * Stripe Checkout line items with tier-resolved price IDs.
+     * Stripe Checkout line items. A product without a sale is sent as its
+     * tier-resolved price ID; a discounted product is sent as inline price_data
+     * at the sale amount, so the charge matches the price shown on the site.
      *
-     * @return array<array{price: string, quantity: int}>
+     * @return array<array<string, mixed>>
      */
     public function getLineItems(): array
     {
+        $sales = Plugin::getInstance()->sales;
+
         return array_map(
-            fn(CartItem $item) => ['price' => $item->price->stripeId, 'quantity' => $item->qty],
+            fn(CartItem $item) => $sales->lineItem($item),
             $this->getHydratedItems(),
         );
     }

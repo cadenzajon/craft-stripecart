@@ -3,6 +3,7 @@
 namespace cadenzajon\stripecart\variables;
 
 use cadenzajon\stripecart\models\CartItem;
+use cadenzajon\stripecart\models\SalePrice;
 use cadenzajon\stripecart\Plugin;
 use craft\stripe\elements\Price;
 use craft\stripe\elements\Product;
@@ -40,5 +41,57 @@ class StripeCartVariable
     public function priceFor(Product $product): ?Price
     {
         return Plugin::getInstance()->tiers->resolvePrice($product);
+    }
+
+    /**
+     * The sale on a product, or null when it is not discounted. Exposes the
+     * original price, the sale price, and the percent off for display.
+     */
+    public function saleFor(Product $product, ?Price $price = null): ?SalePrice
+    {
+        return Plugin::getInstance()->sales->resolve($product, $price);
+    }
+
+    /** The cart total actually charged, in the currency's smallest unit. */
+    public function getSubtotal(): int
+    {
+        $total = 0;
+        foreach ($this->getItems() as $item) {
+            $total += $item->getLineAmount();
+        }
+
+        return $total;
+    }
+
+    /**
+     * True when every line has an exact per-unit amount, so the displayed
+     * subtotal is the amount Stripe will charge.
+     */
+    public function getHasExactTotal(): bool
+    {
+        foreach ($this->getItems() as $item) {
+            if (!$item->getIsAmountExact()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** The cart's currency, taken from its first line. */
+    public function getCurrency(): string
+    {
+        $items = $this->getItems();
+        $first = reset($items);
+
+        return $first ? (string)($first->price->getData()['currency'] ?? 'usd') : 'usd';
+    }
+
+    /**
+     * Formats a Stripe amount for display, honouring zero-decimal currencies.
+     */
+    public function formatAmount(int $amount, ?string $currency = null): string
+    {
+        return Plugin::getInstance()->sales->format($amount, $currency ?? $this->getCurrency());
     }
 }

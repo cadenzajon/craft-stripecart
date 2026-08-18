@@ -6,7 +6,10 @@ use cadenzajon\stripecart\events\CheckoutEvent;
 use cadenzajon\stripecart\Plugin;
 use Craft;
 use craft\helpers\UrlHelper;
+use craft\stripe\elements\Price;
+use craft\stripe\events\CheckoutSessionEvent;
 use craft\stripe\Plugin as StripePlugin;
+use craft\stripe\services\Checkout as StripeCheckout;
 use yii\base\Component;
 
 /**
@@ -88,6 +91,13 @@ class Checkout extends Component
         ]);
         $this->trigger(self::EVENT_BEFORE_CHECKOUT, $event);
 
+        // The official plugin's helper infers the checkout mode by looking up
+        // every line's price ID, so it cannot handle inline price_data lines
+        // (used for sale amounts). Create those sessions directly instead.
+        if ($this->hasInlinePrices($event->lineItems)) {
+            return $this->createSession($event);
+        }
+
         return StripePlugin::getInstance()->getCheckout()->getCheckoutUrl(
             $event->lineItems,
             null,
@@ -95,6 +105,82 @@ class Checkout extends Component
             $event->cancelUrl,
             $event->params ?: null,
         );
+    }
+
+    /** @param array<array<string, mixed>> $lineItems */
+    private function hasInlinePrices(array $lineItems): bool
+    {
+        foreach ($lineItems as $item) {
+            if (isset($item['price_data'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Creates the Checkout Session directly, mirroring what the official
+     * plugin's helper does (customer resolution, mode, its event) for carts it
+     * cannot handle because they carry inline price_data.
+     */
+    private function createSession(CheckoutEvent $event): string
+    {
+        $data = [
+            'line_items' => array_values($event->lineItems),
+            'success_url' => $event->successUrl,
+            'cancel_url' => $event->cancelUrl,
+            'mode' => $this->modeFor($event->lineItems),
+        ] + ($event->params ?: []);
+
+        // Link an existing Stripe customer when we know the shopper, exactly as
+        // the official helper does, and fall back to prefilling their email.
+        $user = Craft::$app->getUser()->getIdentity();
+        if ($user && !isset($data['customer']) && !isset($data['customer_email'])) {
+            $customers = StripePlugin::getInstance()->getCustomers()->getCustomersByEmail($user->email);
+            $customer = !empty($customers) ? reset($customers) : null;
+            if ($customer) {
+                $data['customer'] = $customer->stripeId;
+            } else {
+                $data['customer_email'] = $user->email;
+            }
+        }
+
+        // Keep the official extension point working for this path too.
+        $stripeCheckout = StripePlugin::getInstance()->getCheckout();
+        $sessionEvent = new CheckoutSessionEvent(['params' => $data]);
+        $stripeCheckout->trigger(StripeCheckout::EVENT_BEFORE_START_CHECKOUT_SESSION, $sessionEvent);
+
+        // Re-derive the mode, since a handler may have changed the line items.
+        $params = $sessionEvent->params;
+        $params['mode'] = $this->modeFor($params['line_items'] ?? []);
+
+        $session = StripePlugin::getInstance()->getApi()->getClient()
+            ->checkout->sessions->create($params);
+
+        return $session->url;
+    }
+
+    /**
+     * 'subscription' when any line bills recurringly, otherwise 'payment'.
+     * Inline price_data lines are always one-time (sales are limited to
+     * one-time prices), so only referenced price IDs need looking up.
+     *
+     * @param array<array<string, mixed>> $lineItems
+     */
+    private function modeFor(array $lineItems): string
+    {
+        foreach ($lineItems as $item) {
+            if (!isset($item['price'])) {
+                continue;
+            }
+            $price = Price::find()->stripeId($item['price'])->status(null)->one();
+            if ($price && ($price->getData()['type'] ?? null) === 'recurring') {
+                return 'subscription';
+            }
+        }
+
+        return 'payment';
     }
 
     /**

@@ -6,6 +6,7 @@ use cadenzajon\stripecart\events\OrderCompletedEvent;
 use cadenzajon\stripecart\models\Settings;
 use cadenzajon\stripecart\services\Cart;
 use cadenzajon\stripecart\services\Checkout;
+use cadenzajon\stripecart\services\Sales;
 use cadenzajon\stripecart\services\Tiers;
 use cadenzajon\stripecart\variables\StripeCartVariable;
 use Craft;
@@ -20,6 +21,7 @@ use yii\base\Event;
  * @property-read Cart $cart
  * @property-read Tiers $tiers
  * @property-read Checkout $checkout
+ * @property-read Sales $sales
  * @method static Plugin getInstance()
  * @method Settings getSettings()
  */
@@ -34,6 +36,7 @@ class Plugin extends BasePlugin
                 'cart' => Cart::class,
                 'tiers' => Tiers::class,
                 'checkout' => Checkout::class,
+                'sales' => Sales::class,
             ],
         ];
     }
