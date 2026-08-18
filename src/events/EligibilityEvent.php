@@ -8,7 +8,7 @@ use yii\base\Event;
 /**
  * Fired when the cart needs to know whether a product may be purchased, at add
  * time and when building checkout line items. The cart plugin is store-agnostic,
- * so a site module decides availability (e.g. by a book status field) and sets
+ * so a site module decides availability (e.g. from an availability field) and sets
  * `isEligible = false` with a customer-facing `reason`.
  */
 class EligibilityEvent extends Event

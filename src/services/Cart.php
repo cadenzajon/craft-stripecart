@@ -19,7 +19,7 @@ class Cart extends Component
 {
     /**
      * Fired to decide whether a product may be purchased. A site module sets
-     * `isEligible = false` (e.g. for an out-of-stock or coming-soon title).
+     * `isEligible = false` (e.g. for an out-of-stock or unreleased product).
      */
     public const EVENT_ELIGIBILITY = 'eligibility';
 
@@ -106,7 +106,7 @@ class Cart extends Component
             }
             $qty = $this->clampQty((int)$qty, $product);
             // Drop anything that is no longer purchasable so a stale cart cannot
-            // check out an out-of-stock or coming-soon title.
+            // check out a product that is no longer available.
             if (!$this->isEligible($product, $qty)) {
                 continue;
             }
@@ -135,7 +135,7 @@ class Cart extends Component
         $this->trigger(self::EVENT_ELIGIBILITY, $event);
 
         if (!$event->isEligible) {
-            throw new CartException($event->reason ?? 'This title is not available for purchase.');
+            throw new CartException($event->reason ?? 'This product is not available for purchase.');
         }
     }
 
@@ -156,7 +156,7 @@ class Cart extends Component
     {
         $product = Product::find()->id($productId)->one();
         if (!$product) {
-            throw new CartException('That title is not available.');
+            throw new CartException('That product is not available.');
         }
         return $product;
     }
