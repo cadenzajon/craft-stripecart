@@ -26,7 +26,7 @@ STRIPE_SECRET_KEY=sk_test_...
 
 ## Quick start
 
-Three steps: sync your catalog, add a cart button, add a checkout button. No configuration required.
+Three steps: sync your catalog, add a cart button, add a checkout button. No configuration required. The verified return uses Craft's configured action URL and provides a minimal confirmation page. If `templates/checkout/success.twig` exists, the plugin renders it instead; set `successTemplate` in `config/stripe-cart.php` to select another site template explicitly.
 
 **1. Sync products and prices from Stripe:**
 
@@ -84,8 +84,8 @@ Everything below is optional. Configure it in `config/stripe-cart.php`:
 
 ```php
 return [
+    'successTemplate' => 'shop/thanks', // optional site template override
     'checkout' => [
-        'successUrl' => 'shop/thanks?session={CHECKOUT_SESSION_ID}',
         'cancelUrl' => 'shop/cart',
         'shippingCountries' => ['US', 'CA'],   // collect a shipping address
         'shippingOptions' => ['shr_123'],       // Stripe shipping rate IDs
@@ -93,6 +93,20 @@ return [
     ],
 ];
 ```
+
+By default the success return uses Craft's action URL so verification always runs. To keep a pretty `/checkout/success` URL, add a site route in `config/routes.php` and then set the matching URL:
+
+```php
+// config/routes.php
+return [
+    'checkout/success' => 'stripe-cart/checkout/success',
+];
+
+// config/stripe-cart.php, inside checkout
+'successUrl' => 'checkout/success?session_id={CHECKOUT_SESSION_ID}',
+```
+
+Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing.
 
 Two events let a site module hook in:
 

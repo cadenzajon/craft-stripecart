@@ -6,6 +6,9 @@ use craft\base\Model;
 
 class Settings extends Model
 {
+    /** Site template rendered by the verified checkout success action. */
+    public ?string $successTemplate = null;
+
     /**
      * Optional pricing tiers, keyed by handle. Empty (the default) means no
      * tiers: every product sells at its Stripe default price.

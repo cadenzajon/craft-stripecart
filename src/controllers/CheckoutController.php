@@ -7,6 +7,7 @@ use cadenzajon\stripecart\services\Checkout;
 use Craft;
 use craft\stripe\Plugin as StripePlugin;
 use craft\web\Controller;
+use craft\web\View;
 use yii\web\Response;
 
 class CheckoutController extends Controller
@@ -73,9 +74,22 @@ class CheckoutController extends Controller
             Plugin::getInstance()->cart->clear();
         }
 
-        return $this->renderTemplate('checkout/success', [
+        $view = Craft::$app->getView();
+        $template = Plugin::getInstance()->getSettings()->successTemplate;
+        if ($template && !$view->doesTemplateExist($template, View::TEMPLATE_MODE_SITE)) {
+            Craft::warning("Configured checkout success template does not exist: $template", __METHOD__);
+            $template = null;
+        }
+        if (!$template) {
+            $template = $view->doesTemplateExist('checkout/success', View::TEMPLATE_MODE_SITE)
+                ? 'checkout/success'
+                : '_stripe-cart/checkout/_success.twig';
+        }
+
+        return $this->renderTemplate($template, [
             'sessionId' => $sessionId,
             'paid' => $paid,
-        ]);
+            'ours' => $ours,
+        ], View::TEMPLATE_MODE_SITE);
     }
 }

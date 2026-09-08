@@ -1,5 +1,14 @@
 # Release Notes for Stripe Cart
 
+## Unreleased
+
+### Added
+- A zero-configuration, verified checkout return through Craft's action URL.
+- A private fallback success template and the `successTemplate` site-template override.
+
+### Changed
+- The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.
+
 ## 0.1.0 - 2026-07-23
 
 Initial release.
