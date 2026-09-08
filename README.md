@@ -119,7 +119,7 @@ Pulls every product and price from Stripe. Safe to re-run. To keep the catalog c
 php craft stripe-cart/webhooks/subscribe https://your-site.com/stripe/webhooks/handle
 ```
 
-This creates the endpoint on Stripe and stores the signing secret where the official plugin expects it. Also available: `stripe-cart/webhooks/status` and `stripe-cart/webhooks/unsubscribe`.
+This creates the endpoint on Stripe and stores the signing secret where the official plugin expects it. Re-running the command updates the saved endpoint's URL and event list; if that endpoint no longer exists in Stripe, it creates a replacement. Also available: `stripe-cart/webhooks/status` and `stripe-cart/webhooks/unsubscribe`.
 
 ## Pricing tiers (optional)
 
