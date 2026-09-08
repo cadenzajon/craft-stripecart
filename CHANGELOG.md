@@ -5,10 +5,15 @@
 ### Added
 - A zero-configuration, verified checkout return through Craft's action URL.
 - A private fallback success template and the `successTemplate` site-template override.
+- Stripe webhook subscriptions now include delayed Checkout payment success and failure events.
+- `Checkout::EVENT_ORDER_PAID` covers successful immediate and delayed payments; `Checkout::EVENT_ORDER_PAYMENT_FAILED` reports delayed failures.
 
 ### Changed
 - The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.
 - Hydrated cart reads silently purge missing, ineligible, and unpriced rows and persist clamped quantities. Add/update normalizes stale rows before enforcing the 100-line limit.
+
+### Upgrade note
+- Re-run `stripe-cart/webhooks/subscribe` to add the new event types to an existing Stripe endpoint.
 
 ## 0.1.0 - 2026-07-23
 

@@ -137,6 +137,10 @@ php craft stripe-cart/webhooks/subscribe https://your-site.com/stripe/webhooks/h
 
 This creates the endpoint on Stripe and stores the signing secret where the official plugin expects it. Re-running the command updates the saved endpoint's URL and event list; if that endpoint no longer exists in Stripe, it creates a replacement. Also available: `stripe-cart/webhooks/status` and `stripe-cart/webhooks/unsubscribe`.
 
+The endpoint includes immediate Checkout completion plus asynchronous payment success and failure events. Applications should fulfill from `Checkout::EVENT_ORDER_PAID`, which covers both immediate and delayed success, rather than from an initially unpaid completion event. Do not fulfill from both `EVENT_ORDER_COMPLETED` and `EVENT_ORDER_PAID`, because both fire for an immediately paid checkout. Webhooks can be retried, so handlers must be idempotent.
+
+Existing Stripe endpoints are not changed merely by updating the package. Re-run `stripe-cart/webhooks/subscribe` after upgrading so the saved endpoint receives the new asynchronous events.
+
 ## Pricing tiers (optional)
 
 By default there are no tiers: every product sells at its Stripe default price. Turn tiers on only when a product needs more than one price for different customers — for example retail and wholesale.
@@ -172,6 +176,8 @@ To store the tier on a different metadata key, set `priceTierMetadataKey`.
 - `cadenzajon\stripecart\services\Tiers::EVENT_RESOLVE_TIER` — override the resolved pricing tier
 - `cadenzajon\stripecart\services\Checkout::EVENT_BEFORE_CHECKOUT` — modify line items and session params
 - `cadenzajon\stripecart\services\Checkout::EVENT_ORDER_COMPLETED` — a checkout completed (from the webhook)
+- `cadenzajon\stripecart\services\Checkout::EVENT_ORDER_PAID` — an immediate or delayed checkout payment succeeded
+- `cadenzajon\stripecart\services\Checkout::EVENT_ORDER_PAYMENT_FAILED` — a delayed checkout payment failed
 
 ## License
 

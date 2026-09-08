@@ -61,13 +61,24 @@ class Plugin extends BasePlugin
             $event->roots['_stripe-cart'] = __DIR__ . '/templates';
         });
 
-        // The official plugin receives all webhooks; re-fire completed checkouts
-        // as this plugin's orderCompleted event.
+        // The official plugin receives all webhooks; expose checkout lifecycle
+        // and payment-state events to this plugin's consumers.
         Event::on(StripeWebhooks::class, StripeWebhooks::EVENT_STRIPE_EVENT, function(StripeEvent $event) {
-            if ($event->stripeEvent->type === 'checkout.session.completed') {
+            $type = $event->stripeEvent->type;
+            $session = $event->stripeEvent->data->object;
+
+            if ($type === 'checkout.session.completed') {
                 $this->checkout->trigger(Checkout::EVENT_ORDER_COMPLETED, new OrderCompletedEvent([
-                    'session' => $event->stripeEvent->data->object,
+                    'session' => $session,
                 ]));
+
+                if (($session->payment_status ?? null) !== 'unpaid') {
+                    $this->checkout->trigger(Checkout::EVENT_ORDER_PAID, new OrderCompletedEvent(['session' => $session]));
+                }
+            } elseif ($type === 'checkout.session.async_payment_succeeded') {
+                $this->checkout->trigger(Checkout::EVENT_ORDER_PAID, new OrderCompletedEvent(['session' => $session]));
+            } elseif ($type === 'checkout.session.async_payment_failed') {
+                $this->checkout->trigger(Checkout::EVENT_ORDER_PAYMENT_FAILED, new OrderCompletedEvent(['session' => $session]));
             }
         });
     }
