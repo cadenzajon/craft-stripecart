@@ -1,0 +1,25 @@
+{% set paid = paid ?? false %}
+{% set ours = ours ?? false %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>{{ paid ? 'Payment confirmed' : 'Payment not verified' }}</title>
+</head>
+<body>
+    <main>
+        {% if paid and ours %}
+            <h1>Thank you for your order.</h1>
+            <p>Your payment was received.</p>
+        {% elseif paid %}
+            <h1>Payment confirmed.</h1>
+            <p>A completed payment was verified.</p>
+        {% else %}
+            <h1>Payment not verified.</h1>
+            <p>We could not verify a completed payment. Please contact the store before trying again.</p>
+        {% endif %}
+    </main>
+</body>
+</html>

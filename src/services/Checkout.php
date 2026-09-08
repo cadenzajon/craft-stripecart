@@ -83,10 +83,14 @@ class Checkout extends Component
         Craft::$app->getSession()->set(self::SESSION_REF_KEY, $ref);
         $params['client_reference_id'] = $ref;
 
+        $defaultSuccessUrl = UrlHelper::actionUrl('stripe-cart/checkout/success');
+        $defaultSuccessUrl .= (str_contains($defaultSuccessUrl, '?') ? '&' : '?')
+            . 'session_id={CHECKOUT_SESSION_ID}';
+
         $event = new CheckoutEvent([
             'lineItems' => $lineItems,
             'params' => $params,
-            'successUrl' => $this->siteUrl($settings['successUrl'] ?? 'checkout/success?session_id={CHECKOUT_SESSION_ID}'),
+            'successUrl' => $this->siteUrl($settings['successUrl'] ?? $defaultSuccessUrl),
             'cancelUrl' => $this->siteUrl($settings['cancelUrl'] ?? 'cart'),
         ]);
         $this->trigger(self::EVENT_BEFORE_CHECKOUT, $event);

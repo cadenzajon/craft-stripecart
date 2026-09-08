@@ -12,8 +12,10 @@ use cadenzajon\stripecart\variables\StripeCartVariable;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin as BasePlugin;
+use craft\events\RegisterTemplateRootsEvent;
 use craft\stripe\events\StripeEvent;
 use craft\stripe\services\Webhooks as StripeWebhooks;
+use craft\web\View;
 use craft\web\twig\variables\CraftVariable;
 use yii\base\Event;
 
@@ -53,6 +55,10 @@ class Plugin extends BasePlugin
 
         Event::on(CraftVariable::class, CraftVariable::EVENT_INIT, function(Event $event) {
             $event->sender->set('stripeCart', StripeCartVariable::class);
+        });
+
+        Event::on(View::class, View::EVENT_REGISTER_SITE_TEMPLATE_ROOTS, function(RegisterTemplateRootsEvent $event) {
+            $event->roots['_stripe-cart'] = __DIR__ . '/templates';
         });
 
         // The official plugin receives all webhooks; re-fire completed checkouts
