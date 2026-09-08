@@ -8,6 +8,7 @@ use craft\helpers\App;
 use craft\helpers\Console;
 use craft\helpers\UrlHelper;
 use craft\stripe\Plugin as StripePlugin;
+use Stripe\Exception\InvalidRequestException;
 use yii\console\ExitCode;
 
 /**
@@ -47,6 +48,25 @@ class WebhooksController extends Controller
     {
         $stripe = StripePlugin::getInstance();
         $url ??= UrlHelper::siteUrl('stripe/webhooks/handle');
+        $record = $stripe->getWebhooks()->getWebhookRecord();
+        $currentId = App::parseEnv($record->webhookId ?? '') ?: null;
+
+        if ($currentId) {
+            try {
+                $stripe->getApi()->getClient()->webhookEndpoints->update($currentId, [
+                    'url' => $url,
+                    'enabled_events' => self::EVENTS,
+                ]);
+                $this->stdout("Updated {$currentId} at {$url}\n", Console::FG_GREEN);
+
+                return ExitCode::OK;
+            } catch (InvalidRequestException $e) {
+                if ($e->getStripeCode() !== 'resource_missing') {
+                    throw $e;
+                }
+                $this->stdout("Saved endpoint {$currentId} no longer exists; creating a replacement.\n", Console::FG_YELLOW);
+            }
+        }
 
         $endpoint = $stripe->getApi()->getClient()->webhookEndpoints->create([
             'url' => $url,
@@ -56,7 +76,6 @@ class WebhooksController extends Controller
 
         // Mirror the official plugin's saveWebhookData(): secret and ID go to
         // .env when writable, with the record holding the env references.
-        $record = $stripe->getWebhooks()->getWebhookRecord();
         $config = Craft::$app->getConfig();
 
         try {
