@@ -89,6 +89,8 @@ Everything below is optional. Configure it in `config/stripe-cart.php`:
 ```php
 return [
     'successTemplate' => 'shop/thanks', // optional site template override
+    'defaultMaxQty' => 5,                    // fallback per-product cap; 0 = unlimited
+    'maxQtyMetadataKey' => 'max_qty',        // Stripe Product metadata override
     'checkout' => [
         'cancelUrl' => 'shop/cart',
         'shippingCountries' => ['US', 'CA'],   // collect a shipping address
@@ -111,6 +113,10 @@ return [
 ```
 
 Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing.
+
+Quantity requests above the product's `max_qty` metadata value are clamped with a visible “Limited to N available” message. Products without numeric metadata use `defaultMaxQty`, which defaults to 5. Explicit product metadata `max_qty=0` makes that product unlimited. Set `defaultMaxQty` to `0` for an unlimited fallback, or set `maxQtyMetadataKey` to `''` to preserve the previous unlimited behavior and disable all quantity caps.
+
+JSON responses from add and update include the effective `qty` and a boolean `capped` value in addition to `message` and the total cart `count`.
 
 Two events let a site module hook in:
 

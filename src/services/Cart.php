@@ -41,10 +41,11 @@ class Cart extends Component
     }
 
     /**
+     * @return array{qty: int, capped: bool}
      * @throws CartException if the product is unavailable, missing, or the cart
      *   is at its limits.
      */
-    public function add(int $productId, int $qty = 1): void
+    public function add(int $productId, int $qty = 1): array
     {
         $qty = max(1, $qty);
         $this->getHydratedItems();
@@ -56,24 +57,28 @@ class Cart extends Component
 
         $product = $this->requireProduct($productId);
         $currency = $this->assertProductCurrency($product);
-        $newQty = $this->clampQty(($items[$productId] ?? 0) + $qty, $product);
+        $requestedQty = ($items[$productId] ?? 0) + $qty;
+        $newQty = $this->clampQty($requestedQty, $product);
         $this->assertEligible($product, $newQty);
 
         $items[$productId] = $newQty;
         $this->setItems($items);
         Craft::$app->getSession()->set(self::CURRENCY_SESSION_KEY, $currency);
+
+        return ['qty' => $newQty, 'capped' => $newQty < $requestedQty];
     }
 
     /**
+     * @return array{qty: int, capped: bool}
      * @throws CartException if the product is unavailable or missing.
      */
-    public function update(int $productId, int $qty): void
+    public function update(int $productId, int $qty): array
     {
         if ($qty <= 0) {
             $items = $this->getItems();
             unset($items[$productId]);
             $this->setItems($items);
-            return;
+            return ['qty' => 0, 'capped' => false];
         }
 
         $this->getHydratedItems();
@@ -84,12 +89,15 @@ class Cart extends Component
 
         $product = $this->requireProduct($productId);
         $currency = $this->assertProductCurrency($product);
-        $qty = $this->clampQty($qty, $product);
+        $requestedQty = $qty;
+        $qty = $this->clampQty($requestedQty, $product);
         $this->assertEligible($product, $qty);
 
         $items[$productId] = $qty;
         $this->setItems($items);
         Craft::$app->getSession()->set(self::CURRENCY_SESSION_KEY, $currency);
+
+        return ['qty' => $qty, 'capped' => $qty < $requestedQty];
     }
 
     public function remove(int $productId): void
@@ -195,7 +203,7 @@ class Cart extends Component
 
     /**
      * The per-item maximum quantity, read from the product's Stripe metadata
-     * (0 = no limit).
+     * (0 = no limit). Falls back to the configured default cap.
      */
     public function maxQtyFor(Product $product): int
     {
@@ -203,8 +211,13 @@ class Cart extends Component
         if ($key === '') {
             return 0;
         }
+
         $max = $product->getData()['metadata'][$key] ?? null;
-        return is_numeric($max) ? max(0, (int)$max) : 0;
+        if (is_numeric($max)) {
+            return max(0, (int)$max);
+        }
+
+        return max(0, Plugin::getInstance()->getSettings()->defaultMaxQty);
     }
 
     /** Clamps a quantity to at least 1 and at most the product's per-item limit. */

@@ -27,10 +27,13 @@ class Settings extends Model
 
     /**
      * Stripe product metadata key holding a per-item maximum quantity, set on
-     * the product itself. An absent, empty, or non-numeric value means no
-     * per-item limit. Set the key to '' to disable per-item limits entirely.
+     * the product itself. Missing or invalid metadata uses defaultMaxQty. Set
+     * the key to '' to preserve unlimited quantities and disable all caps.
      */
     public string $maxQtyMetadataKey = 'max_qty';
+
+    /** Default per-product quantity cap when metadata does not provide one. Set to 0 for unlimited. */
+    public int $defaultMaxQty = 5;
 
     /**
      * Checkout options, all optional:
@@ -46,6 +49,13 @@ class Settings extends Model
      * @var array<string, mixed>
      */
     public array $checkout = [];
+
+    public function rules(): array
+    {
+        return [
+            [['defaultMaxQty'], 'integer', 'min' => 0],
+        ];
+    }
 
     public function getDefaultTier(): string
     {
