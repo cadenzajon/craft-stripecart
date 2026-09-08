@@ -28,6 +28,9 @@ class Cart extends Component
 
     private const SESSION_KEY = 'stripe-cart:cart';
 
+    /** @var CartItem[]|null Normalized rows for the current request. */
+    private ?array $hydratedItems = null;
+
     /**
      * @return array<int, int> productId => qty
      */
@@ -43,6 +46,7 @@ class Cart extends Component
     public function add(int $productId, int $qty = 1): void
     {
         $qty = max(1, $qty);
+        $this->getHydratedItems();
         $items = $this->getItems();
 
         if (!isset($items[$productId]) && count($items) >= self::STRIPE_MAX_LINE_ITEMS) {
@@ -69,6 +73,8 @@ class Cart extends Component
             return;
         }
 
+        $this->getHydratedItems();
+        $items = $this->getItems();
         if (!isset($items[$productId]) && count($items) >= self::STRIPE_MAX_LINE_ITEMS) {
             throw new CartException('Your cart is full. Please check out or remove an item first.');
         }
@@ -89,6 +95,7 @@ class Cart extends Component
     public function clear(): void
     {
         Craft::$app->getSession()->remove(self::SESSION_KEY);
+        $this->hydratedItems = null;
     }
 
     /**
@@ -96,17 +103,21 @@ class Cart extends Component
      */
     public function getHydratedItems(): array
     {
+        if ($this->hydratedItems !== null) {
+            return $this->hydratedItems;
+        }
+
         $tiers = Plugin::getInstance()->tiers;
+        $stored = $this->getItems();
+        $normalized = [];
         $items = [];
 
-        foreach ($this->getItems() as $productId => $qty) {
+        foreach ($stored as $productId => $qty) {
             $product = Product::find()->id($productId)->one();
             if (!$product) {
                 continue;
             }
             $qty = $this->clampQty((int)$qty, $product);
-            // Drop anything that is no longer purchasable so a stale cart cannot
-            // check out a product that is no longer available.
             if (!$this->isEligible($product, $qty)) {
                 continue;
             }
@@ -114,11 +125,16 @@ class Cart extends Component
             if (!$price) {
                 continue;
             }
+            $normalized[$productId] = $qty;
             $sale = Plugin::getInstance()->sales->resolve($product, $price);
             $items[] = new CartItem($product, $price, $qty, $sale);
         }
 
-        return $items;
+        if ($normalized !== $stored) {
+            $this->setItems($normalized);
+        }
+
+        return $this->hydratedItems = $items;
     }
 
     /**
@@ -213,5 +229,6 @@ class Cart extends Component
     private function setItems(array $items): void
     {
         Craft::$app->getSession()->set(self::SESSION_KEY, $items);
+        $this->hydratedItems = null;
     }
 }

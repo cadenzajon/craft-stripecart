@@ -69,6 +69,8 @@ That's the whole store. Each product sells at its default Stripe price, and Stri
 - `count` — total quantity
 - `isEmpty`
 
+Missing, ineligible, and unpriced rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
+
 Actions (POST `productId` and `qty`; they redirect back, or return JSON when the request sends `Accept: application/json`):
 
 - `stripe-cart/cart/add`
