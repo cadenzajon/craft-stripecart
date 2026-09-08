@@ -54,6 +54,7 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
+        $this->assertProductCurrency($product);
         $newQty = $this->clampQty(($items[$productId] ?? 0) + $qty, $product);
         $this->assertEligible($product, $newQty);
 
@@ -66,8 +67,8 @@ class Cart extends Component
      */
     public function update(int $productId, int $qty): void
     {
-        $items = $this->getItems();
         if ($qty <= 0) {
+            $items = $this->getItems();
             unset($items[$productId]);
             $this->setItems($items);
             return;
@@ -80,6 +81,7 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
+        $this->assertProductCurrency($product);
         $qty = $this->clampQty($qty, $product);
         $this->assertEligible($product, $qty);
 
@@ -219,11 +221,55 @@ class Cart extends Component
     public function getLineItems(): array
     {
         $sales = Plugin::getInstance()->sales;
+        $items = $this->getHydratedItems();
+        $this->assertSingleCurrency($items);
 
         return array_map(
             fn(CartItem $item) => $sales->lineItem($item),
-            $this->getHydratedItems(),
+            $items,
         );
+    }
+
+    /** The single currency selected by the cart's resolved prices. */
+    public function getCurrency(): string
+    {
+        $items = $this->getHydratedItems();
+        $first = reset($items);
+
+        return $first ? strtolower((string)($first->price->getData()['currency'] ?? 'usd')) : 'usd';
+    }
+
+    /** @param CartItem[] $items */
+    private function assertSingleCurrency(array $items): void
+    {
+        $currency = null;
+        foreach ($items as $item) {
+            $itemCurrency = strtolower((string)($item->price->getData()['currency'] ?? 'usd'));
+            $currency ??= $itemCurrency;
+            if ($itemCurrency !== $currency) {
+                throw new CartException('All items in a cart must use the same currency.');
+            }
+        }
+    }
+
+    private function assertProductCurrency(Product $product): void
+    {
+        $price = Plugin::getInstance()->tiers->resolvePrice($product);
+        if (!$price) {
+            return;
+        }
+
+        $currency = strtolower((string)($price->getData()['currency'] ?? 'usd'));
+        foreach ($this->getHydratedItems() as $item) {
+            if ($item->product->id === $product->id) {
+                continue;
+            }
+
+            $existingCurrency = strtolower((string)($item->price->getData()['currency'] ?? 'usd'));
+            if ($currency !== $existingCurrency) {
+                throw new CartException('This product uses a different currency from the current cart.');
+            }
+        }
     }
 
     private function setItems(array $items): void

@@ -78,13 +78,10 @@ class StripeCartVariable
         return true;
     }
 
-    /** The cart's currency, taken from its first line. */
+    /** The cart session's currency, taken from its resolved prices. */
     public function getCurrency(): string
     {
-        $items = $this->getItems();
-        $first = reset($items);
-
-        return $first ? (string)($first->price->getData()['currency'] ?? 'usd') : 'usd';
+        return Plugin::getInstance()->cart->getCurrency();
     }
 
     /**

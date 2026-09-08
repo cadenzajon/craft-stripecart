@@ -7,6 +7,7 @@
 - A private fallback success template and the `successTemplate` site-template override.
 - Stripe webhook subscriptions now include delayed Checkout payment success and failure events.
 - `Checkout::EVENT_ORDER_PAID` covers successful immediate and delayed payments; `Checkout::EVENT_ORDER_PAYMENT_FAILED` reports delayed failures.
+- Cart sessions enforce one currency across all resolved prices without storing currency on individual cart rows.
 
 ### Changed
 - The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.
