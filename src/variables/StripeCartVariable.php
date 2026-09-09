@@ -84,7 +84,9 @@ class StripeCartVariable
     /** The cart session's currency, taken from its resolved prices. */
     public function getCurrency(): string
     {
-        return Plugin::getInstance()->cart->getCurrency();
+        $currency = Plugin::getInstance()->cart->getCurrency();
+        $this->showClampNotice();
+        return $currency;
     }
 
     /**
