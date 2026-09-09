@@ -8,6 +8,7 @@ use Craft;
 use craft\stripe\Plugin as StripePlugin;
 use craft\web\Controller;
 use craft\web\View;
+use Stripe\Exception\ApiErrorException;
 use yii\web\Response;
 
 class CheckoutController extends Controller
@@ -24,12 +25,12 @@ class CheckoutController extends Controller
         try {
             $url = Plugin::getInstance()->checkout->getCheckoutUrl();
         } catch (\RuntimeException $e) {
-            if ($this->request->getAcceptsJson()) {
-                return $this->asFailure($e->getMessage());
-            }
-            $this->setFailFlash($e->getMessage());
+            return $this->checkoutFailure($e->getMessage());
+        } catch (ApiErrorException $e) {
+            $requestId = $e->getRequestId() ? " (Stripe request {$e->getRequestId()})" : '';
+            Craft::error("Stripe Checkout API failure$requestId: {$e->getMessage()}", __METHOD__);
 
-            return $this->redirectToPostedUrl();
+            return $this->checkoutFailure('Checkout could not be started. Please try again or contact us.');
         }
 
         if ($this->request->getAcceptsJson()) {
@@ -37,6 +38,16 @@ class CheckoutController extends Controller
         }
 
         return $this->redirect($url);
+    }
+
+    private function checkoutFailure(string $message): Response
+    {
+        if ($this->request->getAcceptsJson()) {
+            return $this->asFailure($message);
+        }
+
+        $this->setFailFlash($message);
+        return $this->redirectToPostedUrl();
     }
 
     /**

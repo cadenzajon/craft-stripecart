@@ -12,6 +12,9 @@
 - The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.
 - Hydrated cart reads silently purge missing, ineligible, and unpriced rows and persist clamped quantities. Add/update normalizes stale rows before enforcing the 100-line limit.
 
+### Fixed
+- Stripe API and network failures now return a controlled customer-safe checkout error while logging diagnostic details.
+
 ### Upgrade note
 - Re-run `stripe-cart/webhooks/subscribe` to add the new event types to an existing Stripe endpoint.
 
