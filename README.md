@@ -61,7 +61,7 @@ php craft stripe-cart/sync
 
 That's the whole store. Each product sells at its default Stripe price, and Stripe Checkout handles payment, address, and shipping.
 
-Currency is selected once for the whole cart session from its first resolved Stripe price; it is never stored independently on cart rows. Adding a product in another currency is rejected. If a catalog or tier change makes a stored row disagree with the cart currency, that stale row is silently purged before display or checkout.
+Currency is selected once for the whole cart session from its first resolved Stripe price; it is never stored independently on cart rows. Adding a product with no resolved price or in another currency is rejected. If a catalog or tier change makes a stored row disagree with the cart currency, that stale row is silently purged before display or checkout.
 
 ## Cart
 

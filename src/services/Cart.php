@@ -256,7 +256,7 @@ class Cart extends Component
     {
         $price = Plugin::getInstance()->tiers->resolvePrice($product);
         if (!$price) {
-            return 'usd';
+            throw new CartException('This product does not have a price for the current cart.');
         }
 
         $currency = strtolower((string)($price->getData()['currency'] ?? 'usd'));
