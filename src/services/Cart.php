@@ -166,7 +166,9 @@ class Cart extends Component
         if ($normalized !== $stored) {
             $this->setItems($normalized);
         }
-        if ($notice = $this->getClampNotice()) {
+        // JSON actions carry the notice in their response; do not leave a
+        // duplicate flash behind for an unrelated later page.
+        if (!Craft::$app->getRequest()->getAcceptsJson() && ($notice = $this->getClampNotice())) {
             Craft::$app->getSession()->setNotice($notice);
         }
 
