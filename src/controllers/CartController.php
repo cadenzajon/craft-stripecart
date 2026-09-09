@@ -101,6 +101,10 @@ class CartController extends Controller
 
     private function fail(string $message): Response
     {
+        if ($normalized = Plugin::getInstance()->cart->getClampNotice()) {
+            $message = "{$normalized} {$message}";
+        }
+
         if ($this->request->getAcceptsJson()) {
             return $this->asFailure($message, [
                 'count' => Plugin::getInstance()->cart->getCount(),
