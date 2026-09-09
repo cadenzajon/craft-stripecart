@@ -26,12 +26,16 @@ class StripeCartVariable
 
     public function getCount(): int
     {
-        return Plugin::getInstance()->cart->getCount();
+        $count = Plugin::getInstance()->cart->getCount();
+        $this->showClampNotice();
+        return $count;
     }
 
     public function getIsEmpty(): bool
     {
-        return Plugin::getInstance()->cart->getIsEmpty();
+        $isEmpty = Plugin::getInstance()->cart->getIsEmpty();
+        $this->showClampNotice();
+        return $isEmpty;
     }
 
     /** The active pricing tier handle for this session. */

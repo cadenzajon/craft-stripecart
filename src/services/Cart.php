@@ -238,12 +238,15 @@ class Cart extends Component
 
     public function getCount(): int
     {
-        return array_sum($this->getItems());
+        return array_sum(array_map(
+            fn(CartItem $item) => $item->qty,
+            $this->getHydratedItems(),
+        ));
     }
 
     public function getIsEmpty(): bool
     {
-        return $this->getItems() === [];
+        return $this->getHydratedItems() === [];
     }
 
     /**
