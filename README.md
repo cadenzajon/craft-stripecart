@@ -52,6 +52,9 @@ php craft stripe-cart/sync
   {{ item.product.title }} × {{ item.qty }}
 {% endfor %}
 
+{% set cartNotice = craft.app.session.getFlash('notice') %}
+{% if cartNotice %}<p role="status">{{ cartNotice }}</p>{% endif %}
+
 <form method="post">
   {{ csrfInput() }}
   {{ actionInput('stripe-cart/checkout') }}
@@ -89,6 +92,8 @@ Everything below is optional. Configure it in `config/stripe-cart.php`:
 ```php
 return [
     'successTemplate' => 'shop/thanks', // optional site template override
+    'defaultMaxQty' => 5,                    // fallback per-product cap; 0 = unlimited
+    'maxQtyMetadataKey' => 'max_qty',        // Stripe Product metadata override
     'checkout' => [
         'cancelUrl' => 'shop/cart',
         'shippingCountries' => ['US', 'CA'],   // collect a shipping address
@@ -111,6 +116,10 @@ return [
 ```
 
 Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing.
+
+Quantity requests above the product's `max_qty` metadata value are clamped with a visible “Limited to N available” notice. Products without numeric metadata use `defaultMaxQty`, which defaults to 5. Existing session carts are also clamped on their next hydrated read; every affected product is named in the notice. Render Craft's `notice` flash as shown in the cart example. If checkout itself discovers an unseen clamp, it returns the shopper to the cart with the affected products named instead of redirecting to Stripe. Explicit product metadata `max_qty=0` makes that product unlimited. Set `defaultMaxQty` to `0` for an unlimited fallback, or set `maxQtyMetadataKey` to `''` to preserve the previous unlimited behavior and disable all quantity caps.
+
+JSON responses from add and update include the effective `qty` and a boolean `capped` value in addition to `message` and the total cart `count`.
 
 Two events let a site module hook in:
 

@@ -5,6 +5,7 @@ namespace cadenzajon\stripecart\variables;
 use cadenzajon\stripecart\models\CartItem;
 use cadenzajon\stripecart\models\SalePrice;
 use cadenzajon\stripecart\Plugin;
+use Craft;
 use craft\stripe\elements\Price;
 use craft\stripe\elements\Product;
 
@@ -18,7 +19,9 @@ class StripeCartVariable
      */
     public function getItems(): array
     {
-        return Plugin::getInstance()->cart->getHydratedItems();
+        $items = Plugin::getInstance()->cart->getHydratedItems();
+        $this->showClampNotice();
+        return $items;
     }
 
     public function getCount(): int
@@ -81,7 +84,9 @@ class StripeCartVariable
     /** The cart session's currency, taken from its resolved prices. */
     public function getCurrency(): string
     {
-        return Plugin::getInstance()->cart->getCurrency();
+        $currency = Plugin::getInstance()->cart->getCurrency();
+        $this->showClampNotice();
+        return $currency;
     }
 
     /**
@@ -90,5 +95,13 @@ class StripeCartVariable
     public function formatAmount(int $amount, ?string $currency = null): string
     {
         return Plugin::getInstance()->sales->format($amount, $currency ?? $this->getCurrency());
+    }
+
+    private function showClampNotice(): void
+    {
+        if (!Craft::$app->getRequest()->getAcceptsJson()
+            && ($notice = Plugin::getInstance()->cart->getClampNotice())) {
+            Craft::$app->getSession()->setNotice($notice);
+        }
     }
 }

@@ -9,9 +9,13 @@
 - `Checkout::EVENT_ORDER_PAID` covers successful immediate and delayed payments; `Checkout::EVENT_ORDER_PAYMENT_FAILED` reports delayed failures.
 - Cart sessions enforce one currency across all resolved prices without storing currency on individual cart rows.
 
+### Breaking change
+- Products without numeric quantity metadata now use a configurable `defaultMaxQty` of 5 rather than remaining unlimited. On upgrade, existing session-cart quantities above that limit are clamped on their next hydrated read and a notice is set. Set the default to `0`, or set `maxQtyMetadataKey` to `''`, before upgrading to retain unlimited quantities. Explicit product metadata `max_qty=0` also keeps that product unlimited.
+
 ### Changed
 - The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.
 - Hydrated cart reads silently purge missing, ineligible, unpriced, and stale currency-mismatched rows and persist clamped quantities. Add/update normalizes stale rows before enforcing the 100-line limit.
+- Add/update responses visibly report clamping and JSON responses include the effective `qty` and `capped` state.
 
 ### Fixed
 - Stripe API and network failures now return a controlled customer-safe checkout error while logging diagnostic details.

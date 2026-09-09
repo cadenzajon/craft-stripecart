@@ -18,12 +18,19 @@ class CartController extends Controller
         $qty = (int)$this->request->getBodyParam('qty', 1);
 
         try {
-            Plugin::getInstance()->cart->add($productId, $qty);
+            $result = Plugin::getInstance()->cart->add($productId, $qty);
         } catch (CartException $e) {
             return $this->fail($e->getMessage());
         }
 
-        return $this->respond('Added to cart.');
+        return $this->respond(
+            $this->messageWithNormalizedRows(
+                $result['capped'] ? "Limited to {$result['qty']} available." : 'Added to cart.',
+                $productId,
+            ),
+            $result['qty'],
+            $result['capped'],
+        );
     }
 
     public function actionUpdate(): Response
@@ -33,12 +40,19 @@ class CartController extends Controller
         $qty = (int)$this->request->getRequiredBodyParam('qty');
 
         try {
-            Plugin::getInstance()->cart->update($productId, $qty);
+            $result = Plugin::getInstance()->cart->update($productId, $qty);
         } catch (CartException $e) {
             return $this->fail($e->getMessage());
         }
 
-        return $this->respond('Cart updated.');
+        return $this->respond(
+            $this->messageWithNormalizedRows(
+                $result['capped'] ? "Limited to {$result['qty']} available." : 'Cart updated.',
+                $productId,
+            ),
+            $result['qty'],
+            $result['capped'],
+        );
     }
 
     public function actionRemove(): Response
@@ -59,13 +73,19 @@ class CartController extends Controller
         return $this->respond('Cart cleared.');
     }
 
-    private function respond(string $message): Response
+    private function respond(string $message, ?int $qty = null, bool $capped = false): Response
     {
         if ($this->request->getAcceptsJson()) {
-            return $this->asJson([
+            $data = [
                 'message' => $message,
                 'count' => Plugin::getInstance()->cart->getCount(),
-            ]);
+            ];
+            if ($qty !== null) {
+                $data['qty'] = $qty;
+                $data['capped'] = $capped;
+            }
+
+            return $this->asJson($data);
         }
 
         $this->setSuccessFlash($message);
@@ -73,8 +93,18 @@ class CartController extends Controller
         return $this->redirectToPostedUrl();
     }
 
+    private function messageWithNormalizedRows(string $message, int $productId): string
+    {
+        $normalized = Plugin::getInstance()->cart->getClampNotice($productId);
+        return $normalized ? "{$normalized} {$message}" : $message;
+    }
+
     private function fail(string $message): Response
     {
+        if ($normalized = Plugin::getInstance()->cart->getClampNotice()) {
+            $message = "{$normalized} {$message}";
+        }
+
         if ($this->request->getAcceptsJson()) {
             return $this->asFailure($message, [
                 'count' => Plugin::getInstance()->cart->getCount(),
