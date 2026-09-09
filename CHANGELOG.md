@@ -19,6 +19,7 @@
 
 ### Fixed
 - Stripe API and network failures now return a controlled customer-safe checkout error while logging diagnostic details.
+- Cart `count` and `isEmpty` now use the same normalized rows as cart display and checkout.
 
 ### Upgrade note
 - Re-run `stripe-cart/webhooks/subscribe` to add the new event types to an existing Stripe endpoint.
