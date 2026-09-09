@@ -37,6 +37,12 @@ class Checkout extends Component
      */
     public const EVENT_ORDER_COMPLETED = 'orderCompleted';
 
+    /** Fires once a Checkout Session reports a successful immediate or delayed payment. */
+    public const EVENT_ORDER_PAID = 'orderPaid';
+
+    /** Fires when a delayed Checkout Session payment fails. */
+    public const EVENT_ORDER_PAYMENT_FAILED = 'orderPaymentFailed';
+
     /**
      * Returns the Stripe-hosted Checkout URL for the current cart.
      */

@@ -18,7 +18,7 @@ class WebhooksController extends Controller
 {
     /**
      * Everything the official plugin's CP "create webhook" button subscribes
-     * to, plus checkout.session.completed for this plugin's orderCompleted event.
+     * to, plus immediate and delayed Checkout payment lifecycle events.
      */
     private const EVENTS = [
         'product.created', 'product.updated', 'product.deleted',
@@ -35,6 +35,8 @@ class WebhooksController extends Controller
         'invoice.payment_failed', 'invoice.payment_succeeded', 'invoice.updated',
         'invoice.voided', 'invoice.deleted',
         'checkout.session.completed',
+        'checkout.session.async_payment_succeeded',
+        'checkout.session.async_payment_failed',
     ];
 
     /**
