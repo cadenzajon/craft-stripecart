@@ -234,6 +234,7 @@ class Cart extends Component
     public function getCurrency(): string
     {
         $items = $this->getHydratedItems();
+        $this->assertSingleCurrency($items);
         $first = reset($items);
 
         return $first ? strtolower((string)($first->price->getData()['currency'] ?? 'usd')) : 'usd';

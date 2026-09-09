@@ -55,6 +55,9 @@ class StripeCartVariable
     /** The cart total actually charged, in the currency's smallest unit. */
     public function getSubtotal(): int
     {
+        // Validate before adding smallest-unit amounts; otherwise a stale cart
+        // whose resolved prices changed currencies could display a false total.
+        Plugin::getInstance()->cart->getCurrency();
         $total = 0;
         foreach ($this->getItems() as $item) {
             $total += $item->getLineAmount();
