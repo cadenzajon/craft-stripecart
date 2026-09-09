@@ -24,6 +24,38 @@
 ### Upgrade note
 - Re-run `stripe-cart/webhooks/subscribe` to add the new event types to an existing Stripe endpoint.
 
+## 0.2.1 - 2026-08-18
+
+### Changed
+- Made eligibility and cart error messages product-neutral so the plugin is not coupled to a specific merchandise type.
+
+## 0.2.0 - 2026-08-18
+
+### Added
+- Added site-resolved per-product percentage sales, sale-aware cart values, and inline Stripe Checkout prices so displayed discounts match charges.
+
+### Safety
+- Limited sales to compatible one-time integer-minor-unit Prices and preserved the official Stripe Checkout extension event.
+
+## 0.1.3 - 2026-08-17
+
+### Changed
+- Enforced Stripe Checkout's 100-distinct-line limit and removed the earlier configurable distinct-item limit.
+
+## 0.1.2 - 2026-08-13
+
+### Changed
+- Replaced the global quantity limit with per-product Stripe metadata configured by `maxQtyMetadataKey` (default `max_qty`).
+
+## 0.1.1 - 2026-08-13
+
+### Added
+- Added shipping countries, existing and inline shipping rates, promotion codes, and Stripe Tax Checkout options.
+- Added server-side product eligibility hooks and safe cart errors.
+
+### Fixed
+- Verified returned Checkout Sessions before clearing the initiating browser's cart.
+
 ## 0.1.0 - 2026-07-23
 
 Initial release.
