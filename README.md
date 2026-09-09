@@ -1,8 +1,10 @@
 # Stripe Cart for Craft CMS
 
-A session cart and Stripe Checkout for Craft CMS 5. Your products and prices live in Stripe; this plugin syncs them into Craft, holds a cart in the session, and hands off to Stripe Checkout. No Craft Commerce license, no JavaScript framework, no build step.
+A session cart and Stripe Checkout for Craft CMS 5. Your products and prices live in Stripe; this plugin syncs them into Craft, holds product IDs and quantities in the visitor's Craft session, resolves prices on the server, and hands payment off to Stripe Checkout. No Craft Commerce license, JavaScript framework, or build step is required.
 
 It builds on the free [`craftcms/stripe`](https://plugins.craftcms.com/stripe) plugin, which syncs your catalog. This plugin adds the cart and the checkout.
+
+It does not store orders, manage inventory, calculate fulfillment rates, buy labels, or reconcile payments. Stripe remains the catalog/payment authority; fulfillment belongs in a separate integration.
 
 ## Requirements
 
@@ -15,13 +17,28 @@ It builds on the free [`craftcms/stripe`](https://plugins.craftcms.com/stripe) p
 
 ```bash
 composer require cadenzajon/craft-stripecart
+php craft plugin/install stripe
 php craft plugin/install stripe-cart
 ```
 
-Set your Stripe secret key in `.env` (the official plugin reads it):
+Composer installs the official Stripe dependency. Skip `plugin/install stripe` if it is already installed. Put matching test or live keys in `.env`:
 
-```bash
+```dotenv
 STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
+Reference them in `config/stripe.php` (or configure the official plugin in the control panel):
+
+```php
+<?php
+
+use craft\helpers\App;
+
+return [
+    'secretKey' => App::env('STRIPE_SECRET_KEY'),
+    'publishableKey' => App::env('STRIPE_PUBLISHABLE_KEY'),
+];
 ```
 
 ## Quick start
@@ -54,6 +71,8 @@ php craft stripe-cart/sync
 
 {% set cartNotice = craft.app.session.getFlash('notice') %}
 {% if cartNotice %}<p role="status">{{ cartNotice }}</p>{% endif %}
+{% set cartError = craft.app.session.getFlash('error') %}
+{% if cartError %}<p role="alert">{{ cartError }}</p>{% endif %}
 
 <form method="post">
   {{ csrfInput() }}
@@ -73,10 +92,15 @@ Currency is selected once for the whole cart session from its first resolved Str
 - `items` — cart rows, each with `product`, `price`, and `qty`
 - `count` — total quantity
 - `isEmpty`
+- `tier` — active tier handle, or an empty string when tiers are disabled
+- `subtotal` — exact smallest-unit total where supported
+- `hasExactTotal` — false for Stripe price forms the plugin cannot reproduce locally
+- `currency` — the cart session's currency
+- `priceFor(product)`, `saleFor(product[, price])`, and `formatAmount(amount[, currency])`
 
 Missing, ineligible, unpriced, and stale currency-mismatched rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
 
-Actions (POST `productId` and `qty`; they redirect back, or return JSON when the request sends `Accept: application/json`):
+Actions require POST and CSRF protection. Add/update accept `productId` and `qty`; remove accepts `productId`. They redirect to the posted URL, or return JSON when the request sends `Accept: application/json`:
 
 - `stripe-cart/cart/add`
 - `stripe-cart/cart/update`
@@ -91,17 +115,24 @@ Everything below is optional. Configure it in `config/stripe-cart.php`:
 
 ```php
 return [
-    'successTemplate' => 'shop/thanks', // optional site template override
-    'defaultMaxQty' => 5,                    // fallback per-product cap; 0 = unlimited
-    'maxQtyMetadataKey' => 'max_qty',        // Stripe Product metadata override
+    'successTemplate' => 'shop/thanks',       // optional site template override
+    'defaultMaxQty' => 5,                     // fallback per-product cap; 0 = unlimited
+    'maxQtyMetadataKey' => 'max_qty',         // Stripe Product metadata override
+    'priceTierMetadataKey' => 'tier',         // Stripe Price metadata key
+    'tiers' => [],                            // optional; see Pricing tiers
     'checkout' => [
+        'successUrl' => null,                 // verified action URL by default
         'cancelUrl' => 'shop/cart',
-        'shippingCountries' => ['US', 'CA'],   // collect a shipping address
-        'shippingOptions' => ['shr_123'],       // Stripe shipping rate IDs
+        'shippingCountries' => ['US', 'CA'],  // collect a shipping address
+        'shippingOptions' => ['shr_123'],     // existing Stripe shipping-rate IDs
+        'shippingRates' => [],                // inline shipping_rate_data entries
+        'automaticTax' => false,
         'allowPromotionCodes' => true,
     ],
 ];
 ```
+
+`shippingOptions` and `shippingRates` can both contribute Checkout choices. Inline entries are passed as Stripe `shipping_rate_data`; create their complete structures according to Stripe's API. `automaticTax` enables Stripe Tax, using each Price/account tax behavior.
 
 By default the success return uses Craft's action URL so verification always runs. To keep a pretty `/checkout/success` URL, add a site route in `config/routes.php` and then set the matching URL:
 
@@ -115,11 +146,11 @@ return [
 'successUrl' => 'checkout/success?session_id={CHECKOUT_SESSION_ID}',
 ```
 
-Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing.
+Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing. The success controller supplies `sessionId`, `paid`, and `ours` to the configured template. `paid` means Stripe reports complete and paid/no-payment-required; `ours` additionally proves the Checkout Session belongs to the browser that initiated it. Only `ours` clears that browser's cart. The plugin-owned fallback page is used when no site template is configured.
 
 Quantity requests above the product's `max_qty` metadata value are clamped with a visible “Limited to N available” notice. Products without numeric metadata use `defaultMaxQty`, which defaults to 5. Existing session carts are also clamped on their next hydrated read; every affected product is named in the notice. Render Craft's `notice` flash as shown in the cart example. If checkout itself discovers an unseen clamp, it returns the shopper to the cart with the affected products named instead of redirecting to Stripe. Explicit product metadata `max_qty=0` makes that product unlimited. Set `defaultMaxQty` to `0` for an unlimited fallback, or set `maxQtyMetadataKey` to `''` to preserve the previous unlimited behavior and disable all quantity caps.
 
-JSON responses from add and update include the effective `qty` and a boolean `capped` value in addition to `message` and the total cart `count`.
+JSON add/update responses include `message`, normalized cart `count`, effective `qty`, and boolean `capped`. Remove/clear return `message` and `count`. Failures use Craft's standard failure response. Form requests use `notice` or `error` flashes and redirect back, so storefront templates should render both as shown above.
 
 Two events let a site module hook in:
 
@@ -172,7 +203,7 @@ return [
 ];
 ```
 
-The `default` tier applies to everyone. Other tiers activate per session in one of three ways:
+The first configured tier is the default unless one entry has `'default' => true`. Other tiers activate per session in one of three ways:
 
 - **Access code** — POST to `stripe-cart/tiers/activate` with an `accessCode` field. Works on Craft Solo, which has no front-end users. POST to `stripe-cart/tiers/deactivate` to revert.
 - **User group** (Craft Pro) — add `'userGroup' => 'trade'` to a tier; members of that group get it automatically.
@@ -180,7 +211,20 @@ The `default` tier applies to everyone. Other tiers activate per session in one 
 
 In Twig, `craft.stripeCart.tier` is the active tier handle and `craft.stripeCart.priceFor(product)` returns the tier-resolved price. Checkout uses the active tier's prices automatically.
 
-To store the tier on a different metadata key, set `priceTierMetadataKey`.
+To store the tier on a different metadata key, set `priceTierMetadataKey`. Current resolution falls back from a missing active-tier Price to the configured default tier, then to the Stripe Product's default Price. Ensure every product has exactly one tagged Price for every tier you intend to sell; the plugin currently has no catalog-diagnostics command for missing or duplicate tier tags.
+
+## Product eligibility and sales
+
+Site modules can listen to `Cart::EVENT_ELIGIBILITY` and set `isEligible=false` with a customer-safe reason. Eligibility is checked on mutation and again during hydration/checkout. Missing, ineligible, unpriced, or stale currency-mismatched session rows are silently purged.
+
+Site modules can listen to `Sales::EVENT_RESOLVE_SALE` and set `percentOff`. Sales apply only to plain one-time integer-minor-unit Prices. Recurring, tiered, quantity-transformed, customer-chosen, and sub-minor-unit Prices are left at Stripe's normal price. An accepted sale is sent to Stripe as inline `price_data`, so the displayed and charged integer amount agree.
+
+## Operational notes
+
+- The cart is session-based and disappears when the Craft session expires or is cleared.
+- Catalog, eligibility, tier, currency, and sale resolution happen synchronously during storefront requests.
+- Stripe API/network errors at checkout return a generic shopper-safe error and log technical context.
+- Webhook event consumers must be idempotent because Stripe retries delivery.
 
 ## Events
 
