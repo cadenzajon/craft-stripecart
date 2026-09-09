@@ -61,6 +61,8 @@ php craft stripe-cart/sync
 
 That's the whole store. Each product sells at its default Stripe price, and Stripe Checkout handles payment, address, and shipping.
 
+Currency is selected once for the whole cart session from its first resolved Stripe price; it is never stored independently on cart rows. Adding a product with no resolved price or in another currency is rejected. If a catalog or tier change makes a stored row disagree with the cart currency, that stale row is silently purged before display or checkout.
+
 ## Cart
 
 `craft.stripeCart` in Twig:
@@ -69,7 +71,7 @@ That's the whole store. Each product sells at its default Stripe price, and Stri
 - `count` — total quantity
 - `isEmpty`
 
-Missing, ineligible, and unpriced rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
+Missing, ineligible, unpriced, and stale currency-mismatched rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
 
 Actions (POST `productId` and `qty`; they redirect back, or return JSON when the request sends `Accept: application/json`):
 

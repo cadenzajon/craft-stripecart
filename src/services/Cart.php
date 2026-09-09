@@ -27,6 +27,7 @@ class Cart extends Component
     private const STRIPE_MAX_LINE_ITEMS = 100;
 
     private const SESSION_KEY = 'stripe-cart:cart';
+    private const CURRENCY_SESSION_KEY = 'stripe-cart:currency';
 
     /** @var CartItem[]|null Normalized rows for the current request. */
     private ?array $hydratedItems = null;
@@ -54,11 +55,13 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
+        $currency = $this->assertProductCurrency($product);
         $newQty = $this->clampQty(($items[$productId] ?? 0) + $qty, $product);
         $this->assertEligible($product, $newQty);
 
         $items[$productId] = $newQty;
         $this->setItems($items);
+        Craft::$app->getSession()->set(self::CURRENCY_SESSION_KEY, $currency);
     }
 
     /**
@@ -66,8 +69,8 @@ class Cart extends Component
      */
     public function update(int $productId, int $qty): void
     {
-        $items = $this->getItems();
         if ($qty <= 0) {
+            $items = $this->getItems();
             unset($items[$productId]);
             $this->setItems($items);
             return;
@@ -80,11 +83,13 @@ class Cart extends Component
         }
 
         $product = $this->requireProduct($productId);
+        $currency = $this->assertProductCurrency($product);
         $qty = $this->clampQty($qty, $product);
         $this->assertEligible($product, $qty);
 
         $items[$productId] = $qty;
         $this->setItems($items);
+        Craft::$app->getSession()->set(self::CURRENCY_SESSION_KEY, $currency);
     }
 
     public function remove(int $productId): void
@@ -95,6 +100,7 @@ class Cart extends Component
     public function clear(): void
     {
         Craft::$app->getSession()->remove(self::SESSION_KEY);
+        Craft::$app->getSession()->remove(self::CURRENCY_SESSION_KEY);
         $this->hydratedItems = null;
     }
 
@@ -111,6 +117,8 @@ class Cart extends Component
         $stored = $this->getItems();
         $normalized = [];
         $items = [];
+        $currency = Craft::$app->getSession()->get(self::CURRENCY_SESSION_KEY);
+        $currency = is_string($currency) && $currency !== '' ? strtolower($currency) : null;
 
         foreach ($stored as $productId => $qty) {
             $product = Product::find()->id($productId)->one();
@@ -123,6 +131,14 @@ class Cart extends Component
             }
             $price = $tiers->resolvePrice($product);
             if (!$price) {
+                continue;
+            }
+            $priceCurrency = strtolower((string)($price->getData()['currency'] ?? 'usd'));
+            if ($currency === null) {
+                $currency = $priceCurrency;
+                Craft::$app->getSession()->set(self::CURRENCY_SESSION_KEY, $currency);
+            }
+            if ($priceCurrency !== $currency) {
                 continue;
             }
             $normalized[$productId] = $qty;
@@ -219,16 +235,45 @@ class Cart extends Component
     public function getLineItems(): array
     {
         $sales = Plugin::getInstance()->sales;
+        $items = $this->getHydratedItems();
 
         return array_map(
             fn(CartItem $item) => $sales->lineItem($item),
-            $this->getHydratedItems(),
+            $items,
         );
+    }
+
+    /** The single currency selected by the cart's resolved prices. */
+    public function getCurrency(): string
+    {
+        $items = $this->getHydratedItems();
+        $currency = Craft::$app->getSession()->get(self::CURRENCY_SESSION_KEY);
+
+        return $items !== [] && is_string($currency) ? $currency : 'usd';
+    }
+
+    private function assertProductCurrency(Product $product): string
+    {
+        $price = Plugin::getInstance()->tiers->resolvePrice($product);
+        if (!$price) {
+            throw new CartException('This product does not have a price for the current cart.');
+        }
+
+        $currency = strtolower((string)($price->getData()['currency'] ?? 'usd'));
+        $existingCurrency = Craft::$app->getSession()->get(self::CURRENCY_SESSION_KEY);
+        if (is_string($existingCurrency) && $currency !== strtolower($existingCurrency)) {
+            throw new CartException('This product uses a different currency from the current cart.');
+        }
+
+        return $currency;
     }
 
     private function setItems(array $items): void
     {
         Craft::$app->getSession()->set(self::SESSION_KEY, $items);
+        if ($items === []) {
+            Craft::$app->getSession()->remove(self::CURRENCY_SESSION_KEY);
+        }
         $this->hydratedItems = null;
     }
 }
