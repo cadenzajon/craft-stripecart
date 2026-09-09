@@ -41,6 +41,8 @@ return [
 ];
 ```
 
+The official `craftcms/stripe` settings model requires both keys, even though this plugin's hosted Checkout handoff is initiated server-side with the secret key.
+
 ## Quick start
 
 Three steps: sync your catalog, add a cart button, add a checkout button. No configuration required. The verified return uses Craft's configured action URL and provides a minimal confirmation page. If `templates/checkout/success.twig` exists, the plugin renders it instead; set `successTemplate` in `config/stripe-cart.php` to select another site template explicitly.
@@ -89,7 +91,7 @@ Currency is selected once for the whole cart session from its first resolved Str
 
 `craft.stripeCart` in Twig:
 
-- `items` — cart rows, each with `product`, `price`, and `qty`
+- `items` — cart rows, each with `product`, resolved `price`, `qty`, and nullable `sale` (`originalAmount`, `saleAmount`, and `percentOff`)
 - `count` — total quantity
 - `isEmpty`
 - `tier` — active tier handle, or an empty string when tiers are disabled
