@@ -71,7 +71,7 @@ Currency is selected for the cart session as a whole from its resolved prices; c
 - `count` — total quantity
 - `isEmpty`
 
-Missing, ineligible, and unpriced rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
+Missing, ineligible, unpriced, and stale currency-mismatched rows are silently purged when hydrated cart contents are read, and over-limit quantities are normalized. Add/update normalizes the cart before enforcing Stripe's 100-line limit, so invisible stale rows cannot fill the cart.
 
 Actions (POST `productId` and `qty`; they redirect back, or return JSON when the request sends `Accept: application/json`):
 

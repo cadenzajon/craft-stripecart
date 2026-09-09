@@ -113,6 +113,7 @@ class Cart extends Component
         $stored = $this->getItems();
         $normalized = [];
         $items = [];
+        $currency = null;
 
         foreach ($stored as $productId => $qty) {
             $product = Product::find()->id($productId)->one();
@@ -125,6 +126,11 @@ class Cart extends Component
             }
             $price = $tiers->resolvePrice($product);
             if (!$price) {
+                continue;
+            }
+            $priceCurrency = strtolower((string)($price->getData()['currency'] ?? 'usd'));
+            $currency ??= $priceCurrency;
+            if ($priceCurrency !== $currency) {
                 continue;
             }
             $normalized[$productId] = $qty;
