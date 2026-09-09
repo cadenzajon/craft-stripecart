@@ -91,7 +91,7 @@ Currency is selected once for the whole cart session from its first resolved Str
 
 `craft.stripeCart` in Twig:
 
-- `items` — cart rows, each with `product`, resolved `price`, `qty`, and nullable `sale` (`originalAmount`, `saleAmount`, and `percentOff`)
+- `items` — cart rows, each with `product`, resolved `price`, `qty`, and nullable `sale` (`originalAmount`, `saleAmount`, and `percentOff`). Each row also exposes `unitAmount`, `lineAmount`, and `isAmountExact`; use these instead of reading Stripe's raw `unit_amount` so active sales and non-simple Price types are handled consistently.
 - `count` — total quantity
 - `isEmpty`
 - `tier` — active tier handle, or an empty string when tiers are disabled
