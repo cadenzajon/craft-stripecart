@@ -32,6 +32,9 @@ class Cart extends Component
     /** @var CartItem[]|null Normalized rows for the current request. */
     private ?array $hydratedItems = null;
 
+    /** @var array<int, string> Notices for quantities clamped during hydration. */
+    private array $clampNotices = [];
+
     /**
      * @return array<int, int> productId => qty
      */
@@ -110,6 +113,7 @@ class Cart extends Component
         Craft::$app->getSession()->remove(self::SESSION_KEY);
         Craft::$app->getSession()->remove(self::CURRENCY_SESSION_KEY);
         $this->hydratedItems = null;
+        $this->clampNotices = [];
     }
 
     /**
@@ -127,7 +131,6 @@ class Cart extends Component
         $items = [];
         $currency = Craft::$app->getSession()->get(self::CURRENCY_SESSION_KEY);
         $currency = is_string($currency) && $currency !== '' ? strtolower($currency) : null;
-        $clampedTo = null;
 
         foreach ($stored as $productId => $qty) {
             $product = Product::find()->id($productId)->one();
@@ -137,7 +140,8 @@ class Cart extends Component
             $storedQty = (int)$qty;
             $qty = $this->clampQty($storedQty, $product);
             if ($qty < $storedQty) {
-                $clampedTo = $qty;
+                $title = trim((string)$product->title) ?: 'Item';
+                $this->clampNotices[(int)$productId] = "{$title}: limited to {$qty} available.";
             }
             if (!$this->isEligible($product, $qty)) {
                 continue;
@@ -162,8 +166,8 @@ class Cart extends Component
         if ($normalized !== $stored) {
             $this->setItems($normalized);
         }
-        if ($clampedTo !== null) {
-            Craft::$app->getSession()->setNotice("Limited to {$clampedTo} available.");
+        if ($notice = $this->getClampNotice()) {
+            Craft::$app->getSession()->setNotice($notice);
         }
 
         return $this->hydratedItems = $items;
@@ -257,6 +261,9 @@ class Cart extends Component
     {
         $sales = Plugin::getInstance()->sales;
         $items = $this->getHydratedItems();
+        if ($notice = $this->getClampNotice()) {
+            throw new CartException($notice . ' Review your cart before checking out.');
+        }
 
         return array_map(
             fn(CartItem $item) => $sales->lineItem($item),
@@ -287,6 +294,16 @@ class Cart extends Component
         }
 
         return $currency;
+    }
+
+    public function getClampNotice(?int $exceptProductId = null): ?string
+    {
+        $notices = $this->clampNotices;
+        if ($exceptProductId !== null) {
+            unset($notices[$exceptProductId]);
+        }
+
+        return $notices === [] ? null : implode(' ', $notices);
     }
 
     private function setItems(array $items): void

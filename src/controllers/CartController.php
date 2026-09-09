@@ -24,7 +24,10 @@ class CartController extends Controller
         }
 
         return $this->respond(
-            $result['capped'] ? "Limited to {$result['qty']} available." : 'Added to cart.',
+            $this->messageWithNormalizedRows(
+                $result['capped'] ? "Limited to {$result['qty']} available." : 'Added to cart.',
+                $productId,
+            ),
             $result['qty'],
             $result['capped'],
         );
@@ -43,7 +46,10 @@ class CartController extends Controller
         }
 
         return $this->respond(
-            $result['capped'] ? "Limited to {$result['qty']} available." : 'Cart updated.',
+            $this->messageWithNormalizedRows(
+                $result['capped'] ? "Limited to {$result['qty']} available." : 'Cart updated.',
+                $productId,
+            ),
             $result['qty'],
             $result['capped'],
         );
@@ -85,6 +91,12 @@ class CartController extends Controller
         $this->setSuccessFlash($message);
 
         return $this->redirectToPostedUrl();
+    }
+
+    private function messageWithNormalizedRows(string $message, int $productId): string
+    {
+        $normalized = Plugin::getInstance()->cart->getClampNotice($productId);
+        return $normalized ? "{$normalized} {$message}" : $message;
     }
 
     private function fail(string $message): Response
