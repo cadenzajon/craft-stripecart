@@ -10,7 +10,7 @@
 - Cart sessions enforce one currency across all resolved prices without storing currency on individual cart rows.
 
 ### Breaking change
-- Products without numeric quantity metadata now use a configurable `defaultMaxQty` of 5 rather than remaining unlimited. Set it to `0`, or set `maxQtyMetadataKey` to `''`, before upgrading to retain unlimited quantities. Explicit product metadata `max_qty=0` also keeps that product unlimited.
+- Products without numeric quantity metadata now use a configurable `defaultMaxQty` of 5 rather than remaining unlimited. On upgrade, existing session-cart quantities above that limit are clamped on their next hydrated read and a notice is set. Set the default to `0`, or set `maxQtyMetadataKey` to `''`, before upgrading to retain unlimited quantities. Explicit product metadata `max_qty=0` also keeps that product unlimited.
 
 ### Changed
 - The default post-payment URL now uses Craft's action URL. Sites that track the previous `/checkout/success` path can preserve it by routing that path to `stripe-cart/checkout/success` and setting `checkout.successUrl` explicitly.

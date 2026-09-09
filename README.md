@@ -52,6 +52,9 @@ php craft stripe-cart/sync
   {{ item.product.title }} × {{ item.qty }}
 {% endfor %}
 
+{% set cartNotice = craft.app.session.getFlash('notice') %}
+{% if cartNotice %}<p role="status">{{ cartNotice }}</p>{% endif %}
+
 <form method="post">
   {{ csrfInput() }}
   {{ actionInput('stripe-cart/checkout') }}
@@ -114,7 +117,7 @@ return [
 
 Do not point `successUrl` at a plain template or entry route; that bypasses payment verification and cart clearing.
 
-Quantity requests above the product's `max_qty` metadata value are clamped with a visible “Limited to N available” message. Products without numeric metadata use `defaultMaxQty`, which defaults to 5. Explicit product metadata `max_qty=0` makes that product unlimited. Set `defaultMaxQty` to `0` for an unlimited fallback, or set `maxQtyMetadataKey` to `''` to preserve the previous unlimited behavior and disable all quantity caps.
+Quantity requests above the product's `max_qty` metadata value are clamped with a visible “Limited to N available” notice. Products without numeric metadata use `defaultMaxQty`, which defaults to 5. Existing session carts are also clamped on their next hydrated read and receive the same notice; render Craft's `notice` flash as shown in the cart example. Explicit product metadata `max_qty=0` makes that product unlimited. Set `defaultMaxQty` to `0` for an unlimited fallback, or set `maxQtyMetadataKey` to `''` to preserve the previous unlimited behavior and disable all quantity caps.
 
 JSON responses from add and update include the effective `qty` and a boolean `capped` value in addition to `message` and the total cart `count`.
 

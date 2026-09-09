@@ -127,13 +127,18 @@ class Cart extends Component
         $items = [];
         $currency = Craft::$app->getSession()->get(self::CURRENCY_SESSION_KEY);
         $currency = is_string($currency) && $currency !== '' ? strtolower($currency) : null;
+        $clampedTo = null;
 
         foreach ($stored as $productId => $qty) {
             $product = Product::find()->id($productId)->one();
             if (!$product) {
                 continue;
             }
-            $qty = $this->clampQty((int)$qty, $product);
+            $storedQty = (int)$qty;
+            $qty = $this->clampQty($storedQty, $product);
+            if ($qty < $storedQty) {
+                $clampedTo = $qty;
+            }
             if (!$this->isEligible($product, $qty)) {
                 continue;
             }
@@ -156,6 +161,9 @@ class Cart extends Component
 
         if ($normalized !== $stored) {
             $this->setItems($normalized);
+        }
+        if ($clampedTo !== null) {
+            Craft::$app->getSession()->setNotice("Limited to {$clampedTo} available.");
         }
 
         return $this->hydratedItems = $items;
