@@ -139,10 +139,6 @@ class Cart extends Component
             }
             $storedQty = (int)$qty;
             $qty = $this->clampQty($storedQty, $product);
-            if ($qty < $storedQty) {
-                $title = trim((string)$product->title) ?: 'Item';
-                $this->clampNotices[(int)$productId] = "{$title}: limited to {$qty} available.";
-            }
             if (!$this->isEligible($product, $qty)) {
                 continue;
             }
@@ -159,6 +155,10 @@ class Cart extends Component
                 continue;
             }
             $normalized[$productId] = $qty;
+            if ($qty < $storedQty) {
+                $title = trim((string)$product->title) ?: 'Item';
+                $this->clampNotices[(int)$productId] = "{$title}: limited to {$qty} available.";
+            }
             $sale = Plugin::getInstance()->sales->resolve($product, $price);
             $items[] = new CartItem($product, $price, $qty, $sale);
         }
@@ -166,12 +166,6 @@ class Cart extends Component
         if ($normalized !== $stored) {
             $this->setItems($normalized);
         }
-        // JSON actions carry the notice in their response; do not leave a
-        // duplicate flash behind for an unrelated later page.
-        if (!Craft::$app->getRequest()->getAcceptsJson() && ($notice = $this->getClampNotice())) {
-            Craft::$app->getSession()->setNotice($notice);
-        }
-
         return $this->hydratedItems = $items;
     }
 
